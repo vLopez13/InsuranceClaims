@@ -1,0 +1,52 @@
+# Local placeholders only. Do not put production credentials here.
+# MySQL is published on 127.0.0.1 so it is not exposed on a public interface.
+services:
+  db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    environment:
+      MYSQL_DATABASE: insurance_claims
+      MYSQL_USER: claims
+      MYSQL_PASSWORD: devpassword
+      MYSQL_ROOT_PASSWORD: devrootpassword
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/mysql-init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pdevrootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: mysql+pymysql://claims:devpassword@db:3306/insurance_claims?charset=utf8mb4
+      API_KEY: dev-api-key-change-me
+      APPROVE_T: "0.80"
+      HIGH_AMOUNT_T: "70000.00"
+      THRESHOLD_VERSION: thresholds-v1
+      RULES_VERSION: rules-v1
+      SCORER_IMPL: heuristic
+      STUB_SCORE: "0.50"
+      SCORER_TIMEOUT_SECONDS: "5"
+      ELIGIBILITY_MAX_AGE_DAYS: "365"
+      STORAGE_PATH: /data/documents
+      LOG_LEVEL: INFO
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - documents:/data/documents
+
+volumes:
+  db_data:
+  documents:
